@@ -173,11 +173,11 @@ class BotConfig:
             "proof4.png",
             "proof5.png",
             "proof6.png",
-            "proof7.png",
-            "proof8.png",
-            "proof9.png",
-            "proof10.png",
-            "proof11.png",
+            "proof7.jpeg",
+            "proof8.jpeg",
+            "proof9.jpeg",
+            "proof10.jpeg",
+            "proof11.jpeg",
         ]
         
         # Validate files exist
@@ -970,8 +970,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def step_channels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Step 2: Channel join CTA."""
-    session = get_user_session(update.effective_user.id)
-    session.update_state(WAITING_FOR_NAME)
     
     await asyncio.sleep(1.0)
     
@@ -1018,26 +1016,7 @@ async def step_channels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     
     await asyncio.sleep(2.0)
     
-    await slow_send_message(
-        update, context,
-        "Agar tum mujhe message kar rahe ho,\n"
-        "iska matlab hai tum trading se earn karna seekhna chahte ho 💸\n\n"
-        "Main tumhe real cases dikhaunga\n"
-        "jahan log mere sath kaam karke daily earn kar rahe hain 📈",
-        delay=1.5
-    )
-    
-    await asyncio.sleep(2.5)
-    await step_proof_section(update, context)
-    
-    await asyncio.sleep(2.0)
-    await slow_send_message(
-        update, context,
-        "Accha bro, sabse pehle tumhara naam kya hai? 😊",
-        delay=1.0
-    )
-    
-    return WAITING_FOR_NAME
+    return await step_proof_section(update, context)
 
 async def handle_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle name input."""
@@ -1058,8 +1037,7 @@ async def handle_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     await asyncio.sleep(0.8)
     await slow_send_message(
         update, context,
-        f"Accha {name_text}! Nice to meet you! 👋\n\n"
-        f"Now {name_text}, meri help se tum trading se earn karna seekh sakte ho! 📈",
+        f"Accha {name_text}! Nice to meet you! 👋",
         delay=1.0
     )
     
@@ -1131,6 +1109,18 @@ async def step_proof_section(update: Update, context: ContextTypes.DEFAULT_TYPE)
         text=additional_message,
         reply_markup=reply_markup
     )
+    
+    # Ask for name after Tanix AI buttons
+    await asyncio.sleep(2.0)
+    await slow_send_message(
+        update, context,
+        "Accha bro, sabse pehle tumhara naam kya hai? 😊",
+        delay=1.0
+    )
+    
+    session = get_user_session(update.effective_user.id)
+    session.update_state(WAITING_FOR_NAME)
+    return WAITING_FOR_NAME
 
 async def handle_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle age input with validation and educational guidance."""
@@ -1852,7 +1842,7 @@ async def approve_trader_id(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             await asyncio.sleep(1)
             await context.bot.send_message(
                 chat_id=user_id,
-                text=f"💬 **Message from Admin:**\n\n{custom_message}"
+                text=custom_message
             )
         
         await asyncio.sleep(1.5)
@@ -2379,8 +2369,8 @@ def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_age)
             ],
             WAITING_FOR_ACCOUNT_STATUS: [
-                CallbackQueryHandler(handle_account_status, pattern='^account_'),
-                CallbackQueryHandler(handle_account_link_status, pattern='^account_with_')
+                CallbackQueryHandler(handle_account_link_status, pattern='^account_with_|^account_without_'),
+                CallbackQueryHandler(handle_account_status, pattern='^account_(yes|no)$')
             ],
             WAITING_FOR_TRADER_ID: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_trader_id)
@@ -2404,14 +2394,14 @@ def main():
         per_chat=True
     )
     
-    # Add admin reply handler BEFORE conversation handler (higher priority)
+    # Add conversation handler FIRST
+    application.add_handler(conv_handler)
+    
+    # Add admin reply handler (only when waiting for admin reply)
     application.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND & filters.User(ADMIN_ID),
         handle_admin_reply_message
     ))
-    
-    # Add conversation handler
-    application.add_handler(conv_handler)
     
     # Add admin handlers
     application.add_handler(CommandHandler('admin', admin_panel))
