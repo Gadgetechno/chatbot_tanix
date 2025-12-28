@@ -2440,7 +2440,7 @@ def main():
     # Set SSL certificate path using certifi
     os.environ['SSL_CERT_FILE'] = certifi.where()
     
-    # Create custom request
+    # Create custom request with proper timeout settings
     request = HTTPXRequest(
         http_version="1.1",
         connection_pool_size=8,
@@ -2450,11 +2450,12 @@ def main():
         pool_timeout=30.0
     )
     
-    # Create application with custom request
+    # Create application with custom request - Python 3.10+ compatible
     application = (
         Application.builder()
         .token(TOKEN)
         .request(request)
+        .concurrent_updates(True)
         .build()
     )
     
@@ -2617,4 +2618,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
