@@ -3,8 +3,12 @@ import asyncio
 import os
 import random
 import re
+import ssl
+import certifi
 from typing import Dict, Optional, List, Tuple
 from datetime import datetime, timedelta
+import httpx
+
 from telegram import (
     Update, 
     InlineKeyboardButton, 
@@ -20,7 +24,8 @@ from telegram.ext import (
     ConversationHandler,
     filters
 )
-from telegram.error import BadRequest, TelegramError
+from telegram.error import BadRequest, TelegramError, NetworkError
+from telegram.request import HTTPXRequest
 import google.generativeai as genai
 
 # ==============================
@@ -1481,16 +1486,27 @@ async def handle_trader_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             'timestamp': datetime.now()
         }
         
-        # Send to admin for approval
+        # Escape special characters for HTML
+        def escape_html(text):
+            if text is None:
+                return "Not provided"
+            return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        
+        # Prepare safe values for HTML
+        safe_name = escape_html(session.name) if session.name else "Not provided"
+        safe_username = escape_html(update.effective_user.username) if update.effective_user.username else "No username"
+        safe_age = escape_html(session.age) if session.age else "Not provided"
+        
+        # Send to admin for approval (using HTML format)
         admin_msg = (
-            f"🆕 **New Trader ID Verification Request**\n\n"
-            f"👤 **User Details:**\n"
-            f"• User ID: `{user_id}`\n"
-            f"• Name: {session.name or 'Not provided'}\n"
-            f"• Username: @{update.effective_user.username or 'No username'}\n"
-            f"• Age: {session.age or 'Not provided'}\n\n"
-            f"📊 **Trading Details:**\n"
-            f"• Trader ID: `{trader_id}`\n"
+            f"🆕 <b>New Trader ID Verification Request</b>\n\n"
+            f"👤 <b>User Details:</b>\n"
+            f"• User ID: <code>{user_id}</code>\n"
+            f"• Name: {safe_name}\n"
+            f"• Username: @{safe_username}\n"
+            f"• Age: {safe_age}\n\n"
+            f"📊 <b>Trading Details:</b>\n"
+            f"• Trader ID: <code>{trader_id}</code>\n"
             f"• Has Account: {'Yes' if session.has_trading_account else 'No'}\n"
             f"• Created with Link: {'Yes' if session.account_created_with_link else 'No/New Account'}\n\n"
             f"⏰ Time: {datetime.now().strftime('%d-%m-%Y %H:%M:%S')}"
@@ -1498,8 +1514,11 @@ async def handle_trader_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         
         keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("✅ Allow & Reply", callback_data=f"approve_{user_id}"),
+                InlineKeyboardButton("✅ Allow & Continue", callback_data=f"approve_{user_id}"),
                 InlineKeyboardButton("❌ Deny", callback_data=f"deny_{user_id}")
+            ],
+            [
+                InlineKeyboardButton("🔄 Partially Allow", callback_data=f"partial_{user_id}")
             ]
         ])
         
@@ -1508,7 +1527,7 @@ async def handle_trader_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 chat_id=ADMIN_ID,
                 text=admin_msg,
                 reply_markup=keyboard,
-                parse_mode='Markdown'
+                parse_mode='HTML'
             )
             logger.info(f"Sent verification request to admin for user {user_id}")
             
@@ -1769,6 +1788,32 @@ async def send_weekly_summary(context: ContextTypes.DEFAULT_TYPE):
 # ==============================
 # GENERAL MESSAGE HANDLER (GEMINI AI)
 # ==============================
+async def handle_trader_id_outside_conv(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle trader ID submissions for users waiting after partial approval, or pass to general message handler."""
+    try:
+        user_id = update.effective_user.id
+        
+        # Skip for admin
+        if user_id == ADMIN_ID:
+            return
+        
+        session = get_user_session(user_id)
+        
+        # Check if user is in WAITING_FOR_TRADER_ID state (after partial approval)
+        if session.state == WAITING_FOR_TRADER_ID:
+            # This is a trader ID submission - handle it
+            await handle_trader_id(update, context)
+            return
+        
+        # Otherwise, pass to general message handler (Gemini AI)
+        await handle_general_message(update, context)
+        
+    except Exception as e:
+        logger.error(f"Error in handle_trader_id_outside_conv: {e}")
+        await update.message.reply_text(
+            "Sorry bro, kuch technical issue ho gaya. Thodi der baad try karna ya /start command use karna."
+        )
+
 async def handle_general_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle general messages using Gemini AI."""
     try:
@@ -1940,9 +1985,9 @@ async def handle_admin_reply_message(update: Update, context: ContextTypes.DEFAU
     await approve_trader_id(update, context, user_id, custom_message)
     
     await update.message.reply_text(
-        f"✅ **User {user_id} has been approved!**\n\n"
+        f"✅ <b>User {user_id} has been approved!</b>\n\n"
         f"Your custom message has been sent to the user.",
-        parse_mode='Markdown'
+        parse_mode='HTML'
     )
     
     # Clear the stored data
@@ -1984,8 +2029,7 @@ async def deny_trader_id(update: Update, context: ContextTypes.DEFAULT_TYPE, use
         await context.bot.send_message(
             chat_id=user_id,
             text=denial_msg,
-            reply_markup=keyboard,
-            parse_mode='Markdown'
+            reply_markup=keyboard
         )
         
         # Reset to trader ID state
@@ -2001,8 +2045,78 @@ async def deny_trader_id(update: Update, context: ContextTypes.DEFAULT_TYPE, use
     
     return WAITING_FOR_TRADER_ID
 
+async def handle_message_during_approval(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle messages when user is in WAITING_FOR_ADMIN_APPROVAL state.
+    
+    This handles the case when admin clicked 'Partially Allow' and user sends trader ID again.
+    """
+    user_id = update.effective_user.id
+    session = get_user_session(user_id)
+    
+    # Check if user's session state is WAITING_FOR_TRADER_ID (after partial approval)
+    if session.state == WAITING_FOR_TRADER_ID:
+        # User is supposed to send trader ID after partial approval
+        return await handle_trader_id(update, context)
+    
+    # Otherwise, user is still waiting for admin approval - send reminder
+    personalized_msg = "bro"
+    if session.name:
+        personalized_msg = session.name
+    
+    await slow_send_message(
+        update, context,
+        f"{personalized_msg}, tumhara verification request admin ke paas hai. ⏳\n\n"
+        "Thoda wait karo, jald hi approval mil jayega! 🚀",
+        delay=1.0
+    )
+    
+    return WAITING_FOR_ADMIN_APPROVAL
+
+async def partially_allow_trader_id(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int) -> int:
+    """Partially allow trader ID and ask user to complete account setup and send trader ID again."""
+    if user_id not in pending_verifications:
+        return ConversationHandler.END
+    
+    verification_data = pending_verifications[user_id]
+    session = get_user_session(user_id)
+    
+    personalized_msg = "bro"
+    if verification_data['name']:
+        personalized_msg = verification_data['name']
+    
+    try:
+        # Send partial approval message
+        partial_msg = (
+            f"Dekho {personalized_msg},\n\n"
+            f"Aapne id create kar li hai\n"
+            f"Ab bas apko deposit karna hai\n"
+            f"Minimum aap 150$ add karlo\n\n"
+            f"Aur bonus code ye dono me se koi bhi le sakte ho:\n"
+            f"✅ TANISHQ50\n"
+            f"✅ TANIX50\n\n"
+            f"And send your trader id here."
+        )
+        
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=partial_msg
+        )
+        
+        # Reset to trader ID state - user needs to send trader ID again
+        session.update_state(WAITING_FOR_TRADER_ID)
+        
+        # Remove from pending - they will be added again when they send trader ID
+        del pending_verifications[user_id]
+        
+        logger.info(f"User {user_id} partially allowed, waiting for trader ID again")
+        
+    except Exception as e:
+        logger.error(f"Error sending partial approval to user {user_id}: {e}")
+    
+    return WAITING_FOR_TRADER_ID
+
 async def handle_admin_verification(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle admin approval/denial callback."""
+    """Handle admin approval/denial/partial callback."""
     query = update.callback_query
     await query.answer()
     
@@ -2015,29 +2129,28 @@ async def handle_admin_verification(update: Update, context: ContextTypes.DEFAUL
     user_id = int(user_id_str)
     
     if action == 'approve':
-        # Store the user_id globally for admin
-        admin_awaiting_reply[ADMIN_ID] = {
-            'user_id': user_id,
-            'timestamp': datetime.now()
-        }
-        
+        # Auto-approve without waiting for custom message
         await query.edit_message_text(
-            query.message.text + "\n\n⏳ **Waiting for your reply message...**",
-            parse_mode='Markdown'
+            query.message.text + "\n\n✅ <b>APPROVED</b>",
+            parse_mode='HTML'
         )
         
-        await query.message.reply_text(
-            "📝 **Enter your custom message for the user:**\n\n"
-            "Type the message you want to send along with the approval.\n"
-            "This will be sent after approval confirmation."
-        )
+        # Approve the user immediately
+        await approve_trader_id(update, context, user_id, None)
         
     elif action == 'deny':
         await query.edit_message_text(
-            query.message.text + "\n\n❌ **DENIED**",
-            parse_mode='Markdown'
+            query.message.text + "\n\n❌ <b>DENIED</b>",
+            parse_mode='HTML'
         )
         await deny_trader_id(update, context, user_id)
+        
+    elif action == 'partial':
+        await query.edit_message_text(
+            query.message.text + "\n\n🔄 <b>PARTIALLY ALLOWED</b>",
+            parse_mode='HTML'
+        )
+        await partially_allow_trader_id(update, context, user_id)
 
 async def admin_broadcast_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command to broadcast text message to all users."""
@@ -2065,8 +2178,7 @@ async def admin_broadcast_text(update: Update, context: ContextTypes.DEFAULT_TYP
             if session.registration_time:  # Only send to registered users
                 await context.bot.send_message(
                     chat_id=user_id,
-                    text=message_text,
-                    parse_mode='Markdown'
+                    text=message_text
                 )
                 sent_count += 1
                 await asyncio.sleep(0.1)  # Avoid rate limiting
@@ -2252,34 +2364,34 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     
     panel_msg = (
-        "🔐 **ADMIN PANEL**\n"
+        "🔐 <b>ADMIN PANEL</b>\n"
         "━━━━━━━━━━━━━━━━━━━━\n\n"
-        "📊 **Statistics:**\n"
+        "📊 <b>Statistics:</b>\n"
         f"• Total Users: {len(user_sessions)}\n"
         f"• Registered: {sum(1 for s in user_sessions.values() if s.registration_time)}\n"
         f"• Pending Approvals: {len(pending_verifications)}\n\n"
-        "📢 **Broadcast Commands:**\n\n"
-        "📝 **Text Broadcast:**\n"
-        "`/broadcast_text Your message here`\n"
-        "Example: `/broadcast_text Market update...`\n\n"
-        "🎵 **Audio Broadcast:**\n"
+        "📢 <b>Broadcast Commands:</b>\n\n"
+        "📝 <b>Text Broadcast:</b>\n"
+        "<code>/broadcast_text Your message here</code>\n"
+        "Example: <code>/broadcast_text Market update...</code>\n\n"
+        "🎵 <b>Audio Broadcast:</b>\n"
         "Simply send an audio or voice message\n"
         "It will auto-broadcast to all users\n\n"
-        "🎥 **Video Broadcast:**\n"
+        "🎥 <b>Video Broadcast:</b>\n"
         "Simply send a video message\n"
         "It will auto-broadcast to all users\n\n"
-        "⚙️ **Management Commands:**\n"
-        "`/stats` - View detailed statistics\n"
-        "`/pending` - View pending verifications\n"
-        "`/admin` - Show this panel\n\n"
+        "⚙️ <b>Management Commands:</b>\n"
+        "<code>/stats</code> - View detailed statistics\n"
+        "<code>/pending</code> - View pending verifications\n"
+        "<code>/admin</code> - Show this panel\n\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "💡 **Tips:**\n"
+        "💡 <b>Tips:</b>\n"
         "• Trader ID approvals appear automatically\n"
         "• Use Approve/Deny buttons for verification\n"
         "• All broadcasts go to registered users only"
     )
     
-    await update.message.reply_text(panel_msg, parse_mode='Markdown')
+    await update.message.reply_text(panel_msg, parse_mode='HTML')
 
 # ==============================
 # CANCEL HANDLER
@@ -2302,6 +2414,20 @@ async def handle_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 # ==============================
 # MAIN APPLICATION SETUP
 # ==============================
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle errors caused by Updates."""
+    logger.error(f"Exception while handling an update: {context.error}")
+    
+    # Handle SSL errors gracefully - just log and continue
+    if "SSL" in str(context.error) or "CERTIFICATE" in str(context.error):
+        logger.warning("SSL error occurred, but continuing...")
+        return
+    
+    # For other network errors, log and continue
+    if isinstance(context.error, NetworkError):
+        logger.warning(f"Network error: {context.error}")
+        return
+
 def main():
     """Start the bot with all features."""
     
@@ -2311,17 +2437,29 @@ def main():
     
     TOKEN = "8129963368:AAEQ2NXa4gNOf7EkQkxFqqtnGhTBWOV83T4"  # Your actual token
     
-    # Create application with better connection settings
+    # Set SSL certificate path using certifi
+    os.environ['SSL_CERT_FILE'] = certifi.where()
+    
+    # Create custom request
+    request = HTTPXRequest(
+        http_version="1.1",
+        connection_pool_size=8,
+        connect_timeout=30.0,
+        read_timeout=30.0,
+        write_timeout=30.0,
+        pool_timeout=30.0
+    )
+    
+    # Create application with custom request
     application = (
         Application.builder()
         .token(TOKEN)
-        .connect_timeout(30.0)
-        .read_timeout(30.0)
-        .write_timeout(30.0)
-        .pool_timeout(30.0)
-        .connection_pool_size(8)
+        .request(request)
         .build()
     )
+    
+    # Add error handler
+    application.add_error_handler(error_handler)
     
     # Add periodic jobs
     job_queue = application.job_queue
@@ -2385,7 +2523,8 @@ def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount_response)
             ],
             WAITING_FOR_ADMIN_APPROVAL: [
-                # User waiting for admin approval, no handlers needed
+                # Handle text messages - user might send trader ID after partial approval
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message_during_approval)
             ]
         },
         fallbacks=[CommandHandler('cancel', handle_cancel)],
@@ -2428,7 +2567,7 @@ def main():
     # Add handler for admin verification callbacks
     application.add_handler(CallbackQueryHandler(
         handle_admin_verification,
-        pattern='^(approve|deny)_'
+        pattern='^(approve|deny|partial)_'
     ))
     
     # Add handler for daily responses
@@ -2443,10 +2582,10 @@ def main():
         pattern='^paper_trading_info$'
     ))
     
-    # Add handler for general messages (Gemini AI)
+    # Add handler for trader ID submissions (for users waiting after partial approval)
     application.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
-        handle_general_message
+        handle_trader_id_outside_conv
     ))
     
     logger.info("Bot starting with name collection and account verification system...")
