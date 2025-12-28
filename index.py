@@ -178,11 +178,11 @@ class BotConfig:
             "proof4.png",
             "proof5.png",
             "proof6.png",
-            "proof7.jpeg",
-            "proof8.jpeg",
-            "proof9.jpeg",
-            "proof10.jpeg",
-            "proof11.jpeg",
+            "proof7.png",
+            "proof8.png",
+            "proof9.png",
+            "proof10.png",
+            "proof11.png",
         ]
         
         # Validate files exist
@@ -2617,3 +2617,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
