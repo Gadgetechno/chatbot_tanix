@@ -165,8 +165,8 @@ class BotConfig:
         self.TELEGRAM_CHANNEL = "https://t.me/TANISHQTRADER"
         self.YOUTUBE_CHANNEL = "https://youtube.com/@LEARNWITHTANISHQ1"
         self.REVIEWS_LINK = "https://t.me/your_reviews_channel"
-        self.TRADING_LINK = "https://broker-qx.pro/sign-up/?lid=216478"
-        self.TRADING_LINK_GLOBAL = "https://market-qx.pro/sign-up/?lid=216478"
+        self.TRADING_LINK = "https://u3.shortink.io/register?utm_campaign=834817&utm_source=affiliate&utm_medium=sr&a=POY4xB1cswM8K7&ac=bo"
+        self.TRADING_LINK_GLOBAL = "https://u3.shortink.io/register?utm_campaign=834817&utm_source=affiliate&utm_medium=sr&a=POY4xB1cswM8K7&ac=bo"
         
         # Media files
         self.INTRO_VIDEO = "intro_video.mp4"
@@ -614,7 +614,7 @@ def get_reminder_message(session: UserSession, first_reminder: bool = True) -> s
                 f"Hey {personalized_msg}! 📱\n\n"
                 f"Trader ID bhejne me koi problem aa rahi hai kya? 🤔\n\n"
                 f"Agar Trader ID dhundhne me help chahiye:\n"
-                f"1. Quotex app/website kholo\n"
+                f"1. Pocket Option app/website kholo\n"
                 f"2. Profile section me jao\n"
                 f"3. Trader ID wahan clearly dikhega\n"
                 f"4. Woh ID yahan copy-paste kar do\n\n"
@@ -1089,11 +1089,10 @@ async def step_proof_section(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await asyncio.sleep(2)
     text_message = (
         "💲JUST FOLLOW THIS 3 STEPS:\n\n"
-        "1️⃣CREATE NEW QUOTEX ACCOUNT THROUGH THIS LINK:\n"
-        "🇮🇳 https://broker-qx.pro/sign-up/?lid=216478\n\n"
-        "🌍 https://market-qx.pro/sign-up/?lid=216478\n\n"
-        "2️⃣DEPOSIT MINIMUM $150 & USE CODE - TANIX50\n"
-        "YOU WILL GET (150+75=$225)\n\n"
+        "1️⃣CREATE NEW POCKET OPTION ACCOUNT THROUGH THIS LINK:\n"
+        "🔗 https://u3.shortink.io/register?utm_campaign=834817&utm_source=affiliate&utm_medium=sr&a=POY4xB1cswM8K7&ac=bo\n\n"
+        "2️⃣DEPOSIT MINIMUM $150\n"
+        "YOU WILL GET BONUS\n\n"
         "3️⃣SEND ME YOUR TRADER ID ➖@TANISHBAIRAGI✅"
     )
     await slow_send_message(update, context, text_message, delay=1.0)
@@ -1369,7 +1368,7 @@ async def handle_account_link_status(update: Update, context: ContextTypes.DEFAU
             f"Bht achi baat h bhai {personalized_msg}! 👍\n\n"
             f"Aap apni trader ID bhej do.\n\n"
             "Trader ID find karne ka tareeka:\n"
-            "1. Quotex app ya website open karo\n"
+            "1. Pocket Option app ya website open karo\n"
             "2. Profile section mein jao\n"
             "3. Wahan tumhara Trader ID dikhega\n"
             "4. Us ID ko yahan send karo\n\n"
@@ -1393,14 +1392,12 @@ async def handle_account_link_status(update: Update, context: ContextTypes.DEFAU
         warning_message = (
             "⚠️ **IMPORTANT NOTICE** ⚠️\n\n"
             "✅ AGAR APKA ACCOUNT MERI LINK SE NAHI HAI\n\n"
-            "✅ DELETE YOUR OLD ACCOUNT AND CREATE NEW QUOTEX ACCOUNT WITH MY LINK\n"
+            "✅ DELETE YOUR OLD ACCOUNT AND CREATE NEW POCKET OPTION ACCOUNT WITH MY LINK\n"
             "USE NEW EMAIL\n\n"
             "✅ NO PROBLEM AGAIN VERIFY WITH SAME DOCUMENTS\n\n"
-            "✅ CREATE QUOTEX ACCOUNT THROUGH THIS LINK -\n"
-            f"🇮🇳 {config.TRADING_LINK}\n"
-            f"🌎 {config.TRADING_LINK_GLOBAL}\n\n"
+            "✅ CREATE POCKET OPTION ACCOUNT THROUGH THIS LINK -\n"
+            f"🔗 {config.TRADING_LINK}\n\n"
             "🍃 DEPOSIT 150$ with Bonus\n\n"
-            "🍾 APPLY PROMO CODE - TANISHQ50 OR TANIX50\n\n"
             "SEND TRADER ID HERE\n\n"
             "Kyun zaroori hai?\n"
             "• Proper tracking ke liye\n"
@@ -1410,8 +1407,7 @@ async def handle_account_link_status(update: Update, context: ContextTypes.DEFAU
         )
         
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ CREATE NEW ACCOUNT", url=config.TRADING_LINK)],
-            [InlineKeyboardButton("🌎 GLOBAL LINK", url=config.TRADING_LINK_GLOBAL)]
+            [InlineKeyboardButton("✅ CREATE NEW ACCOUNT", url=config.TRADING_LINK)]
         ])
         
         await slow_send_message(
@@ -1427,7 +1423,7 @@ async def handle_account_link_status(update: Update, context: ContextTypes.DEFAU
             update, context,
             f"{personalized_msg}, new account create karne ke baad mujhe TRADER ID yahan send karna.\n\n"
             "Trader ID find karne ka tareeka:\n"
-            "1. Quotex app ya website open karo\n"
+            "1. Pocket Option app ya website open karo\n"
             "2. Profile section mein jao\n"
             "3. Wahan tumhara Trader ID dikhega\n"
             "4. Us ID ko yahan send karo",
@@ -1557,7 +1553,7 @@ async def handle_trader_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await slow_send_message(
             update, context,
             f"{personalized_msg}, yeh sahi Trader ID nahi lag raha. Please check karo:\n\n"
-            "1. Quotex app ya website pe profile section mein jao\n"
+            "1. Pocket Option app ya website pe profile section mein jao\n"
             "2. Trader ID wahan clearly dikhega\n"
             "3. Woh ID yahan bhejo (only numbers allowed)\n\n"
             "Example: 12345678 (Only Numeric Digit Allowed)",
@@ -1575,21 +1571,18 @@ async def send_registration_instructions(update: Update, context: ContextTypes.D
     
     reg_msg = (
         f"{personalized_msg}, ab hum new account banayenge. Follow these steps carefully: 👇\n\n"
-        "✅ CREATE QUOTEX ACCOUNT THROUGH THIS LINK -\n"
-        f"🇮🇳 {config.TRADING_LINK}\n"
-        f"🌎 {config.TRADING_LINK_GLOBAL}\n\n"
+        "✅ CREATE POCKET OPTION ACCOUNT THROUGH THIS LINK -\n"
+        f"🔗 {config.TRADING_LINK}\n\n"
         "Important Points:\n"
         "✔ VPN OFF hona chahiye\n"
         "✔ Web version use karna better hai\n"
         "✔ New email use karna\n"
         "✔ Same documents se verify kar sakte ho\n\n"
-        "🍃 DEPOSIT 150$ with Bonus\n\n"
-        "🍾 APPLY PROMO CODE - TANISHQ50 OR TANIX50"
+        "🍃 DEPOSIT 150$ with Bonus"
     )
     
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ CREATE ACCOUNT (INDIA)", url=config.TRADING_LINK)],
-        [InlineKeyboardButton("🌎 CREATE ACCOUNT (GLOBAL)", url=config.TRADING_LINK_GLOBAL)]
+        [InlineKeyboardButton("✅ CREATE ACCOUNT", url=config.TRADING_LINK)]
     ])
     
     await slow_send_message(
@@ -1605,7 +1598,7 @@ async def send_registration_instructions(update: Update, context: ContextTypes.D
         update, context,
         f"{personalized_msg}, account create karne ke baad mujhe TRADER ID yahan send karna.\n\n"
         "Trader ID find karne ka tareeka:\n"
-        "1. Quotex app ya website open karo\n"
+        "1. Pocket Option app ya website open karo\n"
         "2. Profile section mein jao\n"
         "3. Wahan tumhara Trader ID dikhega\n"
         "4. Us ID ko yahan send karo\n\n"
@@ -2010,20 +2003,17 @@ async def deny_trader_id(update: Update, context: ContextTypes.DEFAULT_TYPE, use
         denial_msg = (
             f"{personalized_msg}, lagta h aapka account hmare link se nahi bana hai.\n\n"
             f"Koi baat nahi hum naya account banayenge.\n\n"
-            f"✅ DELETE YOUR OLD ACCOUNT AND CREATE NEW QUOTEX ACCOUNT WITH MY LINK\n"
+            f"✅ DELETE YOUR OLD ACCOUNT AND CREATE NEW POCKET OPTION ACCOUNT WITH MY LINK\n"
             f"USE NEW EMAIL\n\n"
             f"✅ NO PROBLEM AGAIN VERIFY WITH SAME DOCUMENTS\n\n"
-            f"✅ CREATE QUOTEX ACCOUNT THROUGH THIS LINK -\n"
-            f"🇮🇳 {config.TRADING_LINK}\n"
-            f"🌎 {config.TRADING_LINK_GLOBAL}\n\n"
+            f"✅ CREATE POCKET OPTION ACCOUNT THROUGH THIS LINK -\n"
+            f"🔗 {config.TRADING_LINK}\n\n"
             f"🍃 DEPOSIT 150$ with Bonus\n\n"
-            f"🍾 APPLY PROMO CODE - TANISHQ50 OR TANIX50\n\n"
             f"SEND TRADER ID HERE"
         )
         
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ CREATE ACCOUNT (INDIA)", url=config.TRADING_LINK)],
-            [InlineKeyboardButton("🌎 CREATE ACCOUNT (GLOBAL)", url=config.TRADING_LINK_GLOBAL)]
+            [InlineKeyboardButton("✅ CREATE ACCOUNT", url=config.TRADING_LINK)]
         ])
         
         await context.bot.send_message(
@@ -2091,9 +2081,6 @@ async def partially_allow_trader_id(update: Update, context: ContextTypes.DEFAUL
             f"Aapne id create kar li hai\n"
             f"Ab bas apko deposit karna hai\n"
             f"Minimum aap 150$ add karlo\n\n"
-            f"Aur bonus code ye dono me se koi bhi le sakte ho:\n"
-            f"✅ TANISHQ50\n"
-            f"✅ TANIX50\n\n"
             f"And send your trader id here."
         )
         
@@ -2598,9 +2585,7 @@ def main():
         try:
             application.run_polling(
                 allowed_updates=Update.ALL_TYPES,
-                drop_pending_updates=True,
-                connect_timeout=30.0,
-                pool_timeout=30.0
+                drop_pending_updates=True
             )
             break  # If successful, exit loop
         except Exception as e:
