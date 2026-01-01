@@ -2435,12 +2435,12 @@ def main():
     if not config.validate_urls():
         logger.warning("Some URLs are invalid. Buttons may not work.")
     
-    TOKEN = "8129963368:AAEQ2NXa4gNOf7EkQkxFqqtnGhTBWOV83T4"  # Your actual token
+    TOKEN = "8385950687:AAGdAqF6ZvvVZmJ79kwhJIdCfLXfJnKzVJw"  # Your actual token
     
     # Set SSL certificate path using certifi
     os.environ['SSL_CERT_FILE'] = certifi.where()
     
-    # Create custom request with proper timeout settings
+    # Create custom request
     request = HTTPXRequest(
         http_version="1.1",
         connection_pool_size=8,
@@ -2450,12 +2450,11 @@ def main():
         pool_timeout=30.0
     )
     
-    # Create application with custom request - Python 3.10+ compatible
+    # Create application with custom request
     application = (
         Application.builder()
         .token(TOKEN)
         .request(request)
-        .concurrent_updates(True)
         .build()
     )
     
